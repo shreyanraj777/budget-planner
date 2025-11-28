@@ -1,0 +1,56 @@
+[
+  {
+    "email": "shreyanraj.chiluka@gmail.com",
+    "months": [
+      {
+        "month": 1,
+        "salary": 1000,
+        "savingGoal": 100,
+        "needs": {
+          "EMI": 200,
+          "Groceries": 100
+        },
+        "wants": [
+          300,
+          200
+        ],
+        "wantBalance": 100,
+        "createdAt": "2025-10-24T05:33:07.393Z"
+      },
+      {
+        "month": 2,
+        "salary": 2000,
+        "savingGoal": 100,
+        "needs": {
+          "EMI": 500,
+          "Groceries": 300,
+          "Rent": 100,
+          "Medicines": 400
+        },
+        "wants": [
+          55,
+          45,
+          100,
+          125,
+          75
+        ],
+        "wantBalance": 200,
+        "createdAt": "2025-11-28T05:53:01.705Z"
+      }
+    ]
+  },
+  {
+    "email": "abc@gmail.com",
+    "months": [
+      {
+        "month": 1,
+        "salary": 1000,
+        "savingGoal": 100,
+        "needs": {},
+        "wants": [],
+        "wantBalance": 0,
+        "createdAt": "2025-11-18T05:21:16.030Z"
+      }
+    ]
+  }
+]
