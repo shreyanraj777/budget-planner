@@ -8,6 +8,10 @@ import "./App.css";
 
 const API = "http://localhost:5000";
 
+// Helper to uniquely identify a saved month (used for hiding on frontend only)
+const getMonthKey = (m) =>
+  m?._id || m?.createdAt || String(m?.month ?? "");
+
 export default function App() {
   // ========== AUTH ==========
   useEffect(() => {
@@ -46,6 +50,9 @@ export default function App() {
   const [currentMonth, setCurrentMonth] = useState(1);
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(null);
 
+  // NEW: which months are hidden from history (frontend only)
+  const [hiddenMonthKeys, setHiddenMonthKeys] = useState([]);
+
   // ui
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -81,6 +88,20 @@ export default function App() {
   }, [isDark]);
 
   const toggleTheme = () => setIsDark((prev) => !prev);
+
+  // ========== LOAD HIDDEN MONTH KEYS (per user) ==========
+  useEffect(() => {
+    if (!user || !user.email) return;
+    const key = `bp_hidden_${user.email}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setHiddenMonthKeys(parsed);
+    } catch {
+      // ignore parse errors
+    }
+  }, [user]);
 
   // ========== LOAD MONTHS (NO OVERWRITE AFTER EDIT) ==========
   useEffect(() => {
@@ -203,9 +224,7 @@ export default function App() {
       setCurrentMonth((m) => m + 1);
       setNeeds({});
       setTransactions([]);
-      setWantBalance(
-        Number(salary || 0) - Number(savingGoal || 0) || 0
-      );
+      setWantBalance(Number(salary || 0) - Number(savingGoal || 0) || 0);
       setIsSaving(false);
     }
   };
@@ -213,6 +232,29 @@ export default function App() {
   const logout = () => {
     localStorage.removeItem("bp_user");
     window.location.href = "/login.html";
+  };
+
+  // NEW: hide a month only on this device
+  const hideMonthByIndex = (index) => {
+    const m = months[index];
+    if (!m) return;
+    const key = getMonthKey(m);
+    if (!key) return;
+
+    if (!window.confirm("Hide this month from history on this device?")) return;
+
+    setHiddenMonthKeys((prev) => {
+      if (prev.includes(key)) return prev;
+      const updated = [...prev, key];
+      if (user?.email) {
+        localStorage.setItem(`bp_hidden_${user.email}`, JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    if (selectedMonthIndex === index) {
+      setSelectedMonthIndex(null);
+    }
   };
 
   // ========== DASHBOARD CHARTS (ONLY PLACE WE USE CHARTS) ==========
@@ -504,49 +546,64 @@ export default function App() {
         ) : (
           <>
             <div className="row g-3 mb-2">
-              {months.map((m, i) => (
-                <div className="col-md-6" key={i}>
-                  <div
-                    className="bp-month-card"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelectedMonthIndex(i)}
-                  >
-                    <div className="d-flex justify-content-between">
-                      <span className="fw-semibold">
-                        Month {m.month}{" "}
-                      </span>
-                      <span className="bp-month-date">
-                        {new Date(m.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <div className="bp-month-row small text-muted">
-                      Date:{" "}
-                      {new Date(m.createdAt).toLocaleString()}
-                    </div>
-                    <div className="bp-month-row">
-                      Salary: <b>₹{m.salary}</b>
-                    </div>
-                    <div className="bp-month-row">
-                      Saving Goal: <b>₹{m.savingGoal}</b>
-                    </div>
-                    <div className="bp-month-row">
-                      Needs Total: <b>₹{sumNeeds(m.needs)}</b>
-                    </div>
-                    <div className="bp-month-row">
-                      Wants Spent: <b>₹{sumTrans(m.wants)}</b>
-                    </div>
-                    <div className="bp-month-row">
-                      Wants Left: <b>₹{m.wantBalance}</b>
-                    </div>
-                    <div className="bp-month-row small text-muted">
-                      Click for full breakdown
+              {months.map((m, i) => {
+                const key = getMonthKey(m);
+                if (hiddenMonthKeys.includes(key)) return null; // skip hidden ones
+
+                return (
+                  <div className="col-md-6" key={key || i}>
+                    <div
+                      className="bp-month-card"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setSelectedMonthIndex(i)}
+                    >
+                      <div className="d-flex justify-content-between">
+                        <span className="fw-semibold">
+                          Month {m.month}{" "}
+                        </span>
+                        <span className="bp-month-date">
+                          {new Date(m.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="bp-month-row small text-muted">
+                        Date: {new Date(m.createdAt).toLocaleString()}
+                      </div>
+                      <div className="bp-month-row">
+                        Salary: <b>₹{m.salary}</b>
+                      </div>
+                      <div className="bp-month-row">
+                        Saving Goal: <b>₹{m.savingGoal}</b>
+                      </div>
+                      <div className="bp-month-row">
+                        Needs Total: <b>₹{sumNeeds(m.needs)}</b>
+                      </div>
+                      <div className="bp-month-row">
+                        Wants Spent: <b>₹{sumTrans(m.wants)}</b>
+                      </div>
+                      <div className="bp-month-row">
+                        Wants Left: <b>₹{m.wantBalance}</b>
+                      </div>
+                      <div className="bp-month-row d-flex justify-content-between align-items-center">
+                        <span className="small text-muted">
+                          Click for full breakdown
+                        </span>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={(e) => {
+                            e.stopPropagation(); // don't open detail
+                            hideMonthByIndex(i);
+                          }}
+                        >
+                          Hide from history
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {selectedMonth && (
+            {selectedMonth && !hiddenMonthKeys.includes(getMonthKey(selectedMonth)) && (
               <div className="bp-detail-panel mt-2">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <h6 className="mb-0">
